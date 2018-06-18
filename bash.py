@@ -116,12 +116,14 @@ class Formula:
                             total_sum += bad_variables[var]
 
                     for var in range(len(bad_variables)):
-                        if int(x / pow(2, var)) % 2 == 1:
-                            place_in_matrix = x - pow(2, var)
-                        else:
-                            place_in_matrix = x + pow(2, var)
-                        probability_distribution[place_in_matrix] = bad_variables[var]
+                        if bad_variables[var] > 0:
+                            if int(x / pow(2, var)) % 2 == 1:
+                                place_in_matrix = x - pow(2, var)
+                            else:
+                                place_in_matrix = x + pow(2, var)
+                            probability_distribution[place_in_matrix] = bad_variables[var]/total_sum
                 else:
+                    #print("waoh", x)
                     for var in range(len(bad_variables)):
                         if bad_variables[var] == 0:
                             if int(x / pow(2, var)) % 2 == 1:
@@ -129,7 +131,6 @@ class Formula:
                             else:
                                 place_in_matrix = x + pow(2, var)
                             probability_distribution[place_in_matrix] = 1/number_zero
-
 
             else:
                 probability_distribution[x] = 1
@@ -149,29 +150,34 @@ class Formula:
         return neighbors
 
     def find_hitting_times(self, sat):
-        transition_matrix = self.find_probabilities_break()
+        transition_matrix = self.find_probabilities_schoning()
         matrix = []
         b = []
         for i in range(pow(2, self.num_variables)):
             probability_row = transition_matrix[i]
             matrix_row = [0 for i in range(len(probability_row))]
             sum = self.sum(probability_row)
+            #print(sum)
             matrix_row[i] = sum
             if i is not sat:
                 neighbors = self.find_neighbors(i)
                 for neigh in neighbors:
                     matrix_row[neigh] = -1 * probability_row[neigh]
-                b.append(sum)
+                b.append(sum)   
             else:
                 b.append(0)
             matrix.append(matrix_row)
 
+        #print(transition_matrix)
         #print(matrix)
+        #print(b)
+        #print(numpy.linalg.cond(matrix))
         hitting_times = numpy.linalg.solve(matrix, b)
 
         return hitting_times  # UGH
 
-formula = Formula([[1, 2, 3], [-1, 2, 3], [1, -2, 3], [1, 2, -3], [1, -2, -3], [-1, -2, 3], [-1, 2, -3]], 3)
+formula = Formula([], 3)  # [-3, 4], [-2, 4], [1, 2], [-1, 2], [1, -2], [3, -4]
+# [1, 2, 3], [-1, 2, 3], [1, -2, 3], [1, 2, -3], [-1, -2, 3], [-1, 2, -3], [1, -2, -3]
 print(formula.find_hitting_times(7))
 
 # Comments : Right now, this only works for formulas with one SAT assignment.
