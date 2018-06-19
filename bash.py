@@ -1,5 +1,7 @@
 import numpy
-
+from math import gcd
+import functools
+import copy
 
 class Formula:
     def __init__(self, formula, num_variables):
@@ -65,6 +67,18 @@ class Formula:
 
         return transition_matrix
 
+    def lcm(self, numbers):
+        product = 1
+        complementary = [1 for i in range(len(numbers))]
+        for num in range(len(numbers)):
+            product = product * numbers[num]
+            for comp in range(len(numbers)):
+                if num - comp is not 0:
+                    complementary[comp] = complementary[comp] * numbers[num]
+        gcd_comp = functools.reduce(gcd, complementary)
+
+        return int(product/gcd_comp)
+
     def find_probabilities_break(self):
         # Return a list of lists, where the first list is indexed by the binary assignment (turned into a number) and
         # the second list is the probabilities of moving to a, b, c, etc.
@@ -106,22 +120,19 @@ class Formula:
                     if bad_variables[var] == 0:
                         number_zero += 1
 
+                find_lcm = []
                 if number_zero == 0:
                     for var in range(len(bad_variables)):
-                        if bad_variables[var] > 0:
-                            bad_variables[var] = 1.0 / bad_variables[var]
-                    total_sum = 0
-                    for var in range(len(bad_variables)):
-                        if bad_variables[var] > 0:
-                            total_sum += bad_variables[var]
-
+                        if bad_variables[var] > 0:  # so this is b_i
+                            find_lcm.append(bad_variables[var])
+                    lcm = self.lcm(find_lcm)
                     for var in range(len(bad_variables)):
                         if bad_variables[var] > 0:
                             if int(x / pow(2, var)) % 2 == 1:
                                 place_in_matrix = x - pow(2, var)
                             else:
                                 place_in_matrix = x + pow(2, var)
-                            probability_distribution[place_in_matrix] = bad_variables[var]/total_sum
+                            probability_distribution[place_in_matrix] = lcm/bad_variables[var]  # maybe this works....?
                 else:
                     #print("waoh", x)
                     for var in range(len(bad_variables)):
@@ -130,7 +141,7 @@ class Formula:
                                 place_in_matrix = x - pow(2, var)
                             else:
                                 place_in_matrix = x + pow(2, var)
-                            probability_distribution[place_in_matrix] = 1/number_zero
+                            probability_distribution[place_in_matrix] = 1  # sum it up
 
             else:
                 probability_distribution[x] = 1
@@ -150,7 +161,7 @@ class Formula:
         return neighbors
 
     def find_hitting_times(self, sat):
-        transition_matrix = self.find_probabilities_schoning()
+        transition_matrix = self.find_probabilities_break()
         matrix = []
         b = []
         for i in range(pow(2, self.num_variables)):
@@ -163,7 +174,7 @@ class Formula:
                 neighbors = self.find_neighbors(i)
                 for neigh in neighbors:
                     matrix_row[neigh] = -1 * probability_row[neigh]
-                b.append(sum)   
+                b.append(sum)
             else:
                 b.append(0)
             matrix.append(matrix_row)
@@ -171,13 +182,67 @@ class Formula:
         #print(transition_matrix)
         #print(matrix)
         #print(b)
-        #print(numpy.linalg.cond(matrix))
+        print(numpy.linalg.cond(matrix))
         hitting_times = numpy.linalg.solve(matrix, b)
 
         return hitting_times  # UGH
 
-formula = Formula([], 3)  # [-3, 4], [-2, 4], [1, 2], [-1, 2], [1, -2], [3, -4]
+    def random_subroutine(self):
+        assignments = [[int(j) for j in bin(i)[2:]] for i in range(pow(2, 6))]
+        for assignment in assignments:
+            if len(assignment) < 6:
+                for i in range(0, 6 - len(assignment)):
+                    assignment.insert(0, 0)  # To fix the length of the assignments
+
+        binary_four_digits = [[int(j) for j in bin(x)[2:]] for x in range(16)]
+        for word in binary_four_digits:
+            if len(word) < 4:
+                for i in range(0, 4 - len(word)):
+                    word.insert(0, 0)
+
+        clause_list = [[-4, 5], [-3, 5], [-2, 5], [-1, 5], [5, 6], [1, -6], [2, -3],[2, -4], [3, -4], [4, -5], [-5, 6]]  # from [1, -2] : good clauses
+        #clause_list = [[1, -2]]
+        finished_assignments = []
+        for clause in clause_list:
+            literal_1 = clause[0]
+            literal_2 = clause[1]
+            if literal_1 < 0:
+                true_variable_1 = -1 * literal_1 - 1
+                digit_1 = 1
+            else:
+                true_variable_1 = literal_1 - 1  # _ _ 1 _ 0 _  add 1, 4, 16, 32 are free.
+                digit_1 = 0
+
+            if literal_2 < 0:
+                true_variable_2 = -1 * literal_2 - 1
+                digit_2 = 1
+            else:
+                true_variable_2 = literal_2 - 1  # _ _ 1 _ 0 _  add 1, 4, 16, 32 are free.
+                digit_2 = 0
+
+            for rep in binary_four_digits:
+                modified_rep = copy.deepcopy(rep)
+                modified_rep.insert(true_variable_1, digit_1)
+                modified_rep.insert(true_variable_2, digit_2)
+                if modified_rep not in finished_assignments:
+                    finished_assignments.append(modified_rep)
+
+        pow_of_two = [pow(2, i) for i in range(6)]
+        num_assignments = [i for i in range(pow(2, 6))]
+        num_finished_assignments = []
+        for binary_rep in finished_assignments:
+            number = 0
+            for d in range(6):
+                number += binary_rep[d] * pow_of_two[5 - d]
+            num_finished_assignments.append(number)
+            #print(binary_rep, number)
+        #print(finished_assignments)
+        return numpy.setdiff1d(num_assignments, num_finished_assignments)
+
+formula = Formula([[-4, 5], [-3, 5], [-2, 5], [-1, 5], [5, 6], [1, -6], [2, -3],[2, -4], [3, -4], [4, -5], [-5, 6]],6)  # [-3, 4], [-2, 4], [1, 2], [-1, 2], [1, -2], [3, -4]
 # [1, 2, 3], [-1, 2, 3], [1, -2, 3], [1, 2, -3], [-1, -2, 3], [-1, 2, -3], [1, -2, -3]
-print(formula.find_hitting_times(7))
+print(formula.find_hitting_times(63))
+#print(len(formula.random_subroutine()), formula.random_subroutine())
 
 # Comments : Right now, this only works for formulas with one SAT assignment.
+# Update : This just doesn't work.
