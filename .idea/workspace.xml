@@ -17,8 +17,8 @@
       <file leaf-file-name="bash.py" pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/bash.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="502">
-              <caret line="193" column="18" lean-forward="true" selection-start-line="193" selection-start-column="18" selection-end-line="193" selection-end-column="18" />
+            <state relative-caret-position="525">
+              <caret line="283" column="94" lean-forward="true" selection-start-line="283" selection-start-column="94" selection-end-line="283" selection-end-column="94" />
               <folding>
                 <element signature="e#0#12#0" expanded="true" />
               </folding>
@@ -198,8 +198,28 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/bash.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="502">
-          <caret line="193" column="18" lean-forward="true" selection-start-line="193" selection-start-column="18" selection-end-line="193" selection-end-column="18" />
+        <state relative-caret-position="0">
+          <caret line="0" column="0" lean-forward="false" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
+          <folding>
+            <element signature="e#0#12#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/bash.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="0">
+          <caret line="0" column="0" lean-forward="false" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
+          <folding>
+            <element signature="e#0#12#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/bash.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="525">
+          <caret line="283" column="94" lean-forward="true" selection-start-line="283" selection-start-column="94" selection-end-line="283" selection-end-column="94" />
           <folding>
             <element signature="e#0#12#0" expanded="true" />
           </folding>

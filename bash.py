@@ -2,6 +2,8 @@ import numpy
 from math import gcd
 import functools
 import copy
+from itertools import combinations
+
 
 class Formula:
     def __init__(self, formula, num_variables):
@@ -161,7 +163,7 @@ class Formula:
         return neighbors
 
     def find_hitting_times(self, sat):
-        transition_matrix = self.find_probabilities_break()
+        transition_matrix = self.find_probabilities_schoning()
         matrix = []
         b = []
         for i in range(pow(2, self.num_variables)):
@@ -187,43 +189,40 @@ class Formula:
 
         return hitting_times  # UGH
 
-    def random_subroutine(self):
-        assignments = [[int(j) for j in bin(i)[2:]] for i in range(pow(2, 6))]
+########### GENERATION OF COUNTEREXAMPLES ###########
+
+    # This method takes a clause list and then finds the assignments that are still SAT.
+    def still_sat(self, clause_list, num_variables, k):
+        assignments = [[int(j) for j in bin(i)[2:]] for i in range(pow(2, num_variables))]
         for assignment in assignments:
-            if len(assignment) < 6:
-                for i in range(0, 6 - len(assignment)):
+            if len(assignment) < num_variables:
+                for i in range(0, num_variables - len(assignment)):
                     assignment.insert(0, 0)  # To fix the length of the assignments
 
-        binary_four_digits = [[int(j) for j in bin(x)[2:]] for x in range(16)]
-        for word in binary_four_digits:
-            if len(word) < 4:
-                for i in range(0, 4 - len(word)):
+        binary_digits = [[int(j) for j in bin(x)[2:]] for x in range(pow(2, num_variables - k))]
+        for word in binary_digits:
+            if len(word) < num_variables - k:
+                for i in range(0, num_variables - k - len(word)):
                     word.insert(0, 0)
 
-        clause_list = [[-4, 5], [-3, 5], [-2, 5], [-1, 5], [5, 6], [1, -6], [2, -3],[2, -4], [3, -4], [4, -5], [-5, 6]]  # from [1, -2] : good clauses
-        #clause_list = [[1, -2]]
         finished_assignments = []
         for clause in clause_list:
-            literal_1 = clause[0]
-            literal_2 = clause[1]
-            if literal_1 < 0:
-                true_variable_1 = -1 * literal_1 - 1
-                digit_1 = 1
-            else:
-                true_variable_1 = literal_1 - 1  # _ _ 1 _ 0 _  add 1, 4, 16, 32 are free.
-                digit_1 = 0
+            true_variable = [0 for q in range(len(clause))]
+            digit = [0 for q in range(len(clause))]
 
-            if literal_2 < 0:
-                true_variable_2 = -1 * literal_2 - 1
-                digit_2 = 1
-            else:
-                true_variable_2 = literal_2 - 1  # _ _ 1 _ 0 _  add 1, 4, 16, 32 are free.
-                digit_2 = 0
+            for q in range(len(clause)):
+                if clause[q] < 0:
+                    true_variable[q] = -1 * clause[q] - 1
+                    digit[q] = 1
+                else:
+                    true_variable[q] = clause[q] - 1
+                    digit[q] = 0
 
-            for rep in binary_four_digits:
+            for rep in binary_digits:
                 modified_rep = copy.deepcopy(rep)
-                modified_rep.insert(true_variable_1, digit_1)
-                modified_rep.insert(true_variable_2, digit_2)
+                for q in range(len(clause)):
+                    modified_rep.insert(true_variable[q], digit[q])
+
                 if modified_rep not in finished_assignments:
                     finished_assignments.append(modified_rep)
 
@@ -235,14 +234,63 @@ class Formula:
             for d in range(6):
                 number += binary_rep[d] * pow_of_two[5 - d]
             num_finished_assignments.append(number)
-            #print(binary_rep, number)
-        #print(finished_assignments)
+
+        #print(num_assignments)
+        #print(num_finished_assignments)
         return numpy.setdiff1d(num_assignments, num_finished_assignments)
 
-formula = Formula([[-4, 5], [-3, 5], [-2, 5], [-1, 5], [5, 6], [1, -6], [2, -3],[2, -4], [3, -4], [4, -5], [-5, 6]],6)  # [-3, 4], [-2, 4], [1, 2], [-1, 2], [1, -2], [3, -4]
-# [1, 2, 3], [-1, 2, 3], [1, -2, 3], [1, 2, -3], [-1, -2, 3], [-1, 2, -3], [1, -2, -3]
-print(formula.find_hitting_times(63))
-#print(len(formula.random_subroutine()), formula.random_subroutine())
+    def complete_good_clauses(self, assignment_list, num_variables, k):
+        all_literals = [i for i in range(1, num_variables + 1)]
+        for i in range(1, num_variables + 1):
+            all_literals.append(-i)
+        all_clauses = list(combinations(all_literals, k))
+        for i in range(1, num_variables + 1):
+            if (i, -i) in all_clauses:
+                #print("here")
+                all_clauses.remove((i, -i))
+            if (-i, i) in all_clauses:
+                #print("also here")
+                all_clauses.remove((i, -i))
+
+        allowed = []
+        for clause in all_clauses:
+            success = 1
+            for x in assignment_list:
+                assignment = [int(j) for j in bin(x)[2:]]
+                if len(assignment) < self.num_variables:
+                    for i in range(0, self.num_variables - len(assignment)):
+                        assignment.insert(0, 0)
+                output = 0
+                for literal in clause:
+                    if literal < 0:
+                        true_variable = assignment[-1 * literal - 1]
+                        if true_variable == 0:
+                            true_variable = 1
+                        else:
+                            true_variable = 0
+                    else:
+                        true_variable = assignment[literal - 1]
+                    output = output + true_variable
+                if output == 0:
+                    success = 0
+            if success:
+                allowed.append(clause)
+
+        return allowed
+
+formula = Formula([[-4, 5], [-3, 5], [-2, 5], [-1, 5], [5, 6], [1, -6], [2, -3], [2, -4], [3, -4], [4, -5], [-5, 6]], 6)
+
+good_clauses = formula.complete_good_clauses([60, 56, 48, 32, 0, 63, 15, 7, 3, 1], 6, 2)  # 15, 7, 3, 1
+bad_clauses = [(-4, 6), (-3, 6), (-2, 6), (-1, 6), (5, 6), (1, -3), (1, -4), (1, -5), (1, -6)]
+#print(good_clauses)
+total = good_clauses + bad_clauses
+#print(total)
+print(formula.still_sat(total, 6, 2)) # something might be wrong...
+# ht = formula.find_hitting_times(63)
+# total_sum = 0
+# for entry in ht:
+#     total_sum += entry
+# print(total_sum/64)
 
 # Comments : Right now, this only works for formulas with one SAT assignment.
 # Update : This just doesn't work.
