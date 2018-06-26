@@ -162,8 +162,12 @@ class Formula:
                 neighbors.append(number + two)
         return neighbors
 
-    def find_hitting_times(self, sat):
-        transition_matrix = self.find_probabilities_schoning()
+    def find_hitting_times(self, sat, schoning):
+        if schoning:
+            transition_matrix = self.find_probabilities_schoning()
+        else:
+            transition_matrix = self.find_probabilities_break()
+
         matrix = []
         b = []
         for i in range(pow(2, self.num_variables)):
@@ -184,7 +188,7 @@ class Formula:
         #print(transition_matrix)
         #print(matrix)
         #print(b)
-        print(numpy.linalg.cond(matrix))
+        print("Condition Number : ", numpy.linalg.cond(matrix))
         hitting_times = numpy.linalg.solve(matrix, b)
 
         return hitting_times  # UGH
@@ -278,19 +282,28 @@ class Formula:
 
         return allowed
 
-formula = Formula([[-4, 5], [-3, 5], [-2, 5], [-1, 5], [5, 6], [1, -6], [2, -3], [2, -4], [3, -4], [4, -5], [-5, 6]], 6)
+num_var = 6
+k = 4
 
-good_clauses = formula.complete_good_clauses([60, 56, 48, 32, 0, 63, 15, 7, 3, 1], 6, 2)  # 15, 7, 3, 1
-bad_clauses = [(-4, 6), (-3, 6), (-2, 6), (-1, 6), (5, 6), (1, -3), (1, -4), (1, -5), (1, -6)]
-#print(good_clauses)
+formula = Formula([], 6)
+
+good_clauses = formula.complete_good_clauses([pow(2, num_var) - 1], num_var, k)
+bad_clauses = []
 total = good_clauses + bad_clauses
-#print(total)
-print(formula.still_sat(total, 6, 2)) # something might be wrong...
-# ht = formula.find_hitting_times(63)
-# total_sum = 0
-# for entry in ht:
-#     total_sum += entry
-# print(total_sum/64)
+print("Formula: ", total)
+print("Assignments Still SAT: ", formula.still_sat(total, num_var, k))
+
+next_formula = Formula(total, num_var)
+
+ht_schoning = next_formula.find_hitting_times(pow(2, num_var) - 1, True)
+ht_break = next_formula.find_hitting_times(pow(2, num_var) - 1, False)
+total_sum_s = 0
+total_sum_b = 0
+for entry in range(len(ht_schoning)):
+    total_sum_s += ht_schoning[entry]
+    total_sum_b += ht_break[entry]
+print("Schöning Expected Time : ", total_sum_s/pow(2, num_var))
+print("Break Expected Time : ", total_sum_b/pow(2, num_var))
 
 # Comments : Right now, this only works for formulas with one SAT assignment.
 # Update : This just doesn't work.
