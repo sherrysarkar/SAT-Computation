@@ -3,6 +3,7 @@ from math import gcd
 import functools
 import copy
 from itertools import combinations
+import matplotlib.pyplot as plt
 
 
 class Formula:
@@ -188,10 +189,10 @@ class Formula:
         #print(transition_matrix)
         #print(matrix)
         #print(b)
-        print("Condition Number : ", numpy.linalg.cond(matrix))
+        #print("Condition Number : ", numpy.linalg.cond(matrix))
         hitting_times = numpy.linalg.solve(matrix, b)
 
-        return hitting_times  # UGH
+        return hitting_times, numpy.linalg.cond(matrix)  # UGH
 
 ########### GENERATION OF COUNTEREXAMPLES ###########
 
@@ -282,28 +283,115 @@ class Formula:
 
         return allowed
 
-num_var = 6
-k = 4
 
-formula = Formula([], 6)
+def hitting_times():
+    num_var = 6
+    k = 3
 
-good_clauses = formula.complete_good_clauses([pow(2, num_var) - 1], num_var, k)
-bad_clauses = []
-total = good_clauses + bad_clauses
-print("Formula: ", total)
-print("Assignments Still SAT: ", formula.still_sat(total, num_var, k))
+    formula = Formula([], 6)
 
-next_formula = Formula(total, num_var)
+    good_clauses = formula.complete_good_clauses([pow(2, num_var) - 1], num_var, k)
+    bad_clauses = []
+    total = good_clauses + bad_clauses
+    print("Formula: ", total, len(total))
+    print("Assignments Still SAT: ", formula.still_sat(total, num_var, k))
 
-ht_schoning = next_formula.find_hitting_times(pow(2, num_var) - 1, True)
-ht_break = next_formula.find_hitting_times(pow(2, num_var) - 1, False)
-total_sum_s = 0
-total_sum_b = 0
-for entry in range(len(ht_schoning)):
-    total_sum_s += ht_schoning[entry]
-    total_sum_b += ht_break[entry]
-print("Schöning Expected Time : ", total_sum_s/pow(2, num_var))
-print("Break Expected Time : ", total_sum_b/pow(2, num_var))
+    next_formula = Formula(total, num_var)
 
+    ht_schoning, s_cond_number = next_formula.find_hitting_times(pow(2, num_var) - 1, True)
+    ht_break, b_cond_number = next_formula.find_hitting_times(pow(2, num_var) - 1, False)
+    total_sum_s = 0
+    total_sum_b = 0
+    for entry in range(len(ht_schoning)):
+        total_sum_s += ht_schoning[entry]
+        total_sum_b += ht_break[entry]
+    print("Schöning Expected Time : ", total_sum_s / pow(2, num_var))
+    print("Break Expected Time : ", total_sum_b / pow(2, num_var))
+
+def base_list_generator(num_var, k):
+    powers_of_two = [i for i in range(pow(2, k) - 1)]
+    binary_powers = []
+    for num in powers_of_two:
+        assignment = [int(j) for j in bin(num)[2:]]
+        if len(assignment) < k:
+            for i in range(0, k - len(assignment)):
+                assignment.insert(0, 0)
+        binary_powers.append(assignment)
+
+    clause_list = []
+    i = 1
+    while i <= num_var:
+        for assignment in binary_powers:
+            clause = []
+            for literal in assignment:
+                if literal == 0:
+                    clause.append(i)
+                else:
+                    clause.append(-1 * i)
+                i += 1
+            #print(clause)
+            clause_list.append(clause)
+            i = i - k
+            #print(i)
+        if i + k > num_var + 1:
+            remainder = i + k - num_var
+            i = i + remainder
+        else:
+            i = i + k
+
+    #print(len(clause_list))
+    return clause_list
+
+def num_clauses_experiment():
+    num_var = 6
+    k = 3
+
+    base_clauses = base_list_generator(num_var, k)
+    formula = Formula([], 6)
+    good_clauses = formula.complete_good_clauses([pow(2, num_var) - 1], num_var, k)
+
+    num_clauses = []
+    break_performance = []
+    schoning_performance = []
+
+    m = len(base_clauses)
+
+    #print(len(good_clauses))
+    for clause in good_clauses:
+        if clause not in base_clauses:
+            base_clauses.append(clause)
+            #print(formula.still_sat(base_clauses, num_var, k))  # MAKE SURE NOTHING IS WRONG
+
+            m += 1
+
+            nf = Formula(base_clauses, num_var)
+            ht_schoning, s_cond = nf.find_hitting_times(pow(2, num_var) - 1, True)
+            ht_break, b_cond = nf.find_hitting_times(pow(2, num_var) - 1, False)
+            total_sum_s = 0
+            total_sum_b = 0
+            for entry in range(len(ht_schoning)):
+                total_sum_s += ht_schoning[entry]
+                total_sum_b += ht_break[entry]
+            #print("Schöning Expected Time : ", total_sum_s / pow(2, num_var))
+            #print("Break Expected Time : ", total_sum_b / pow(2, num_var))
+
+            if s_cond < 1e+14 and b_cond < 1e14:
+                num_clauses.append(m)
+                break_performance.append(total_sum_b / pow(2, num_var))
+                schoning_performance.append(total_sum_s / pow(2, num_var))
+
+    print(len(num_clauses), len(break_performance), len(schoning_performance))
+    print(type(num_clauses), type(break_performance), type(schoning_performance))
+    print(num_clauses[0][0])
+    print(break_performance[0][0])
+    #print(num_clauses)
+    #print(break_performance)
+    #print(schoning_performance)
+    plt.scatter(m, break_performance, c="g")
+    #plt.scatter(m, schoning_performance, c="r")
+    #plt.show()
+
+num_clauses_experiment()
+#print(base_list_generator(6, 3))
 # Comments : Right now, this only works for formulas with one SAT assignment.
 # Update : This just doesn't work.
