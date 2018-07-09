@@ -4,6 +4,7 @@ import functools
 import copy
 from itertools import combinations
 import matplotlib.pyplot as plt
+from random import shuffle
 
 
 class Formula:
@@ -49,10 +50,10 @@ class Formula:
 
         for x in assignments:
             probability_distribution = [0 for i in range(pow(2, self.num_variables))]
-            c_e = self.evaluate_clause_by_clause(x)  # First, evaluate
-            if 0 in c_e:
+            c_e = self.evaluate_clause_by_clause(x)  # First, evaluate the formula.
+            if 0 in c_e:  # If it's not the SAT assignment.
                 for clause_number in range(len(c_e)):
-                    if not c_e[clause_number]:
+                    if not c_e[clause_number]:  # If it's false.
                         for literal in self.formula[clause_number]:
                             variable = literal
                             if variable < 0:
@@ -69,6 +70,19 @@ class Formula:
             transition_matrix.append(probability_distribution)
 
         return transition_matrix
+
+    def find_probabilities_one_step_lookahead(self):
+        schoning_tm = self.find_probabilities_schoning()
+        one_step_ahead = []
+
+        for row in schoning_tm:
+            multiples = []
+            for entry_num in range(len(row)):
+                multiple_of_dist = [row[entry_num] * x for x in schoning_tm[entry_num]]
+                multiples.append(multiple_of_dist)
+            one_step_ahead.append([sum(x) for x in zip(*multiples)])
+
+        return one_step_ahead
 
     def lcm(self, numbers):
         product = 1
@@ -320,7 +334,7 @@ def base_list_generator(num_var, k):
 
     clause_list = []
     i = 1
-    while i <= num_var:
+    while i < num_var:
         for assignment in binary_powers:
             clause = []
             for literal in assignment:
@@ -332,8 +346,8 @@ def base_list_generator(num_var, k):
             #print(clause)
             clause_list.append(clause)
             i = i - k
-            #print(i)
-        if i + k > num_var + 1:
+            print(i)
+        if i + k > num_var + 1 and i < num_var:
             remainder = i + k - num_var
             i = i + remainder
         else:
@@ -342,56 +356,58 @@ def base_list_generator(num_var, k):
     #print(len(clause_list))
     return clause_list
 
-def num_clauses_experiment():
-    num_var = 6
-    k = 3
+def num_clauses_experiment(num_var, k):
 
     base_clauses = base_list_generator(num_var, k)
-    formula = Formula([], 6)
+    formula = Formula([], num_var)
     good_clauses = formula.complete_good_clauses([pow(2, num_var) - 1], num_var, k)
+
+    shuffle(good_clauses)
 
     num_clauses = []
     break_performance = []
     schoning_performance = []
 
     m = len(base_clauses)
+    i = 0
 
     #print(len(good_clauses))
     for clause in good_clauses:
-        if clause not in base_clauses:
-            base_clauses.append(clause)
-            #print(formula.still_sat(base_clauses, num_var, k))  # MAKE SURE NOTHING IS WRONG
+        if i < 100:
+            if clause not in base_clauses:
+                base_clauses.append(clause)
+                if len(formula.still_sat(base_clauses, num_var, k)) > 1:
+                    raise ("NOT A UNIQUE SAT")
 
-            m += 1
+                m += 1
 
-            nf = Formula(base_clauses, num_var)
-            ht_schoning, s_cond = nf.find_hitting_times(pow(2, num_var) - 1, True)
-            ht_break, b_cond = nf.find_hitting_times(pow(2, num_var) - 1, False)
-            total_sum_s = 0
-            total_sum_b = 0
-            for entry in range(len(ht_schoning)):
-                total_sum_s += ht_schoning[entry]
-                total_sum_b += ht_break[entry]
-            #print("Schöning Expected Time : ", total_sum_s / pow(2, num_var))
-            #print("Break Expected Time : ", total_sum_b / pow(2, num_var))
+                nf = Formula(base_clauses, num_var)
+                ht_schoning, s_cond = nf.find_hitting_times(pow(2, num_var) - 1, True)
+                ht_break, b_cond = nf.find_hitting_times(pow(2, num_var) - 1, False)
+                total_sum_s = 0
+                total_sum_b = 0
+                for entry in range(len(ht_schoning)):
+                    total_sum_s += ht_schoning[entry]
+                    total_sum_b += ht_break[entry]
+                # print("Schöning Expected Time : ", total_sum_s / pow(2, num_var))
+                # print("Break Expected Time : ", total_sum_b / pow(2, num_var))
+                print("Condition Numbers: ", s_cond, b_cond)
+                if s_cond < 1e+14 and b_cond < 1e14:
+                    num_clauses.append(m)
+                    break_performance.append(total_sum_b / pow(2, num_var))
+                    schoning_performance.append(total_sum_s / pow(2, num_var))
+                    print(i)
+                    i += 1
 
-            if s_cond < 1e+14 and b_cond < 1e14:
-                num_clauses.append(m)
-                break_performance.append(total_sum_b / pow(2, num_var))
-                schoning_performance.append(total_sum_s / pow(2, num_var))
+    plt.scatter(num_clauses, break_performance, c="g", label="Break")
+    plt.scatter(num_clauses, schoning_performance, c="r", label="Schoning")
+    plt.xlabel("Number of Clauses")
+    plt.ylabel("Expected Number of Steps")
+    plt.legend()
+    plt.title("{}-SAT on {} variables".format(k, num_var))
+    plt.show()
 
-    print(len(num_clauses), len(break_performance), len(schoning_performance))
-    print(type(num_clauses), type(break_performance), type(schoning_performance))
-    print(num_clauses[0][0])
-    print(break_performance[0][0])
-    #print(num_clauses)
-    #print(break_performance)
-    #print(schoning_performance)
-    plt.scatter(m, break_performance, c="g")
-    #plt.scatter(m, schoning_performance, c="r")
-    #plt.show()
-
-num_clauses_experiment()
-#print(base_list_generator(6, 3))
+#num_clauses_experiment(9, 3)
+#print(base_list_generator(7, 3))
 # Comments : Right now, this only works for formulas with one SAT assignment.
 # Update : This just doesn't work.
